@@ -8,4 +8,15 @@
         <item name="colorAccent">@color/colorAccent</item>
     </style>
 
+    <style name="headline_text_style">
+        <item name="android:textColor">@android:color/white</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textSize">@dimen/headline_text</item>
+    </style>
+
+    <style name="sub_text_style">
+        <item name="android:textSize">@dimen/sub_text</item>
+        <item name="android:textColor">@android:color/white</item>
+    </style>
+
 </resources>
