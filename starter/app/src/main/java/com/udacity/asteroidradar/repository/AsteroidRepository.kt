@@ -1,12 +1,15 @@
 package com.udacity.asteroidradar.repository
 
 import androidx.lifecycle.LiveData
+import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.Transformations
 import com.udacity.asteroidradar.Asteroid
 import com.udacity.asteroidradar.Constants
+import com.udacity.asteroidradar.PictureOfDay
 import com.udacity.asteroidradar.api.Network
 import com.udacity.asteroidradar.database.DBRoom
 import com.udacity.asteroidradar.api.parseAsteroidsJsonResult
+import com.udacity.asteroidradar.database.DatabaseAsteriod
 import com.udacity.asteroidradar.database.asDatabaseModel
 import com.udacity.asteroidradar.database.asDomainModel
 import kotlinx.coroutines.Dispatchers
@@ -18,19 +21,31 @@ import java.util.*
 
 class AsteroidRepository(private val database: DBRoom) {
 
-    val asteroids: LiveData<List<Asteroid>> = Transformations.map(database.sleepDatabaseDao.getAsteroids()) {
-        it.asDomainModel()
+    private val calendar =Calendar.getInstance()
+    private val formatter =  SimpleDateFormat(Constants.API_QUERY_DATE_FORMAT)
+
+    val sortingMethod = MutableLiveData<String>()
+    val asteroids: LiveData<List<Asteroid>> = Transformations.switchMap(sortingMethod) {
+        when(it)
+        {
+            "TODAY"-> Transformations.map(database.sleepDatabaseDao.getTodayAsteroids(formatter.format(calendar.time))){ data->
+                data.asDomainModel()
+            }
+            else->  Transformations.map(database.sleepDatabaseDao.getAsteroids()){ data->
+                data.asDomainModel()
+            }
+        }
     }
 
-    suspend fun getPictureOfDay() : String
+    suspend fun getPictureOfDay() : PictureOfDay
     {
-        var url=""
+        var pictureOfDay = PictureOfDay("","","")
         withContext(Dispatchers.IO){
             try {
                 val picture=Network.api.getPictureOfTheDay().await()
-                if(picture.mediaType.equals("image"))
+                if(picture!=null)
                 {
-                    url=picture.url
+                    pictureOfDay=PictureOfDay(picture.mediaType,picture.title,picture.url)
                 }
             }catch (e : Exception)
             {
@@ -38,7 +53,7 @@ class AsteroidRepository(private val database: DBRoom) {
             }
         }
 
-        return url
+        return pictureOfDay
     }
 
     suspend fun refreshAsteroids() {
@@ -47,9 +62,9 @@ class AsteroidRepository(private val database: DBRoom) {
 
                 val format =  SimpleDateFormat(Constants.API_QUERY_DATE_FORMAT)
                 val calendar= Calendar.getInstance()
-                val start= format.format(calendar.getTime())
+                val start= format.format(calendar.time)
                 calendar.add(Calendar.DAY_OF_YEAR,7)
-                val end= format.format(calendar.getTime())
+                val end= format.format(calendar.time)
 
                 val asteroidslist = Network.api.getAsteroids(start,end,Constants.API_KEY).await()
                 val jsonObject =JSONObject(asteroidslist)
